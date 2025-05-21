@@ -3,7 +3,7 @@ name: Auto Update IDM
 on:
   schedule:
     # Run once every hour
-    - cron: '0 * * * *'
+    - cron: '* * * * *'
   workflow_dispatch:  # Allow manual trigger
   push:  # Check for updates when code is pushed
     branches:
