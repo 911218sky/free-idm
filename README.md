@@ -1,6 +1,5 @@
 # 🚀 IDM (Internet Download Manager) FREE
 
----
 
 ## 📋 Prerequisites
 
@@ -13,8 +12,6 @@ Before installing the new version of IDM, please follow these preparation steps:
 2. **Clean up browser extensions** 🧹
    - Remove all IDM plugins from your browsers
    - Run the [`Clean_IDM_Residuals.bat`](https://github.com/911218sky/free-idm/releases/tag/v0.0.1) batch file
-
----
 
 ## 💿 Installation Process
 
