@@ -2,8 +2,8 @@ name: Auto Update IDM
 
 on:
   schedule:
-    # Run once every hour
-    - cron: '* * * * *'
+    # Run once daily at 4:00 AM UTC
+    - cron: '0 4 * * *'
   workflow_dispatch:  # Allow manual trigger
   push:  # Check for updates when code is pushed
     branches:
@@ -22,7 +22,7 @@ jobs:
       - name: Setup Python environment
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: '3.12'
           
       - name: Install dependencies
         run: |
@@ -60,7 +60,9 @@ jobs:
             
             Last updated: ${{ steps.date.outputs.current_date }}
             Automatically updated by GitHub Actions
-          update_existing: true  # Update the existing release instead of creating a new one
+          # Update the existing release instead of creating a new one
+          update_existing: true
+          draft: false
       
       - name: Update version tag
         if: steps.check-updates.outputs.new_version == 'true'
