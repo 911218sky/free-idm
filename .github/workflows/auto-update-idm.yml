@@ -44,6 +44,30 @@ jobs:
         id: date
         run: echo "current_date=$(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_OUTPUT
           
+      - name: Commit version update
+        if: steps.check-updates.outputs.new_version == 'true'
+        run: |
+          git config --local user.email "sky@sky1218.com"
+          git config --local user.name "sky1218"
+          # Force add the ignored file with -f option
+          git add -f current_version.txt
+          git commit -m "Update IDM to version ${{ steps.check-updates.outputs.version }}"
+          git push
+      
+      - name: Update version tag
+        if: steps.check-updates.outputs.new_version == 'true'
+        run: |
+          git config --local user.email "sky@sky1218.com"
+          git config --local user.name "sky1218"
+          
+          # Delete the existing tag locally and remotely (if exists)
+          git tag -d IDM || true
+          git push origin :refs/tags/IDM || true
+          
+          # Create a new tag at the current commit
+          git tag IDM
+          git push origin IDM
+
       - name: Update existing IDM release
         if: steps.check-updates.outputs.new_version == 'true'
         uses: softprops/action-gh-release@v1
@@ -63,27 +87,3 @@ jobs:
           # Update the existing release instead of creating a new one
           update_existing: true
           draft: false
-      
-      - name: Update version tag
-        if: steps.check-updates.outputs.new_version == 'true'
-        run: |
-          git config --local user.email "sky@sky1218.com"
-          git config --local user.name "sky1218"
-          
-          # Delete the existing tag locally and remotely (if exists)
-          git tag -d IDM || true
-          git push origin :refs/tags/IDM || true
-          
-          # Create a new tag at the current commit
-          git tag IDM
-          git push origin IDM
-          
-      - name: Commit version update
-        if: steps.check-updates.outputs.new_version == 'true'
-        run: |
-          git config --local user.email "sky@sky1218.com"
-          git config --local user.name "sky1218"
-          # Force add the ignored file with -f option
-          git add -f current_version.txt
-          git commit -m "Update IDM to version ${{ steps.check-updates.outputs.version }}"
-          git push
