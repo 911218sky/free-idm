@@ -1,0 +1,63 @@
+name: Auto Update IDM
+
+on:
+  schedule:
+    # Run once every hour
+    - cron: '0 * * * *'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  check-and-update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        
+      - name: Setup Python environment
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests beautifulsoup4
+          
+      - name: Check IDM updates
+        id: check-updates
+        run: python .github/scripts/idm_updater.py
+        
+      - name: Download new IDM version
+        if: steps.check-updates.outputs.new_version == 'true'
+        run: |
+          mkdir -p ./downloads
+          echo "Downloading from ${{ steps.check-updates.outputs.download_url }}"
+          wget -O "./downloads/idm_${{ steps.check-updates.outputs.version }}.exe" "${{ steps.check-updates.outputs.download_url }}"
+          
+      - name: Create Release
+        if: steps.check-updates.outputs.new_version == 'true'
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: "v${{ steps.check-updates.outputs.version }}"
+          name: "Internet Download Manager v${{ steps.check-updates.outputs.version }}"
+          files: |
+            ./downloads/idm_${{ steps.check-updates.outputs.version }}.exe
+            current_version.txt
+          body: |
+            Internet Download Manager has been updated to version ${{ steps.check-updates.outputs.version }}
+            
+            Automatically updated by GitHub Actions
+      
+      - name: Commit version update
+        if: steps.check-updates.outputs.new_version == 'true'
+        run: |
+          git config --local user.email "sky@sky1218.com"
+          git config --local user.name "sky1218"
+          git add current_version.txt
+          git commit -m "Update IDM to version ${{ steps.check-updates.outputs.version }}"
+          git push
