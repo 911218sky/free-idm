@@ -5,6 +5,9 @@ on:
     # Run once every hour
     - cron: '0 * * * *'
   workflow_dispatch:  # Allow manual trigger
+  push:  # Check for updates when code is pushed
+    branches:
+      - main  # Or your default branch name (could be master)
 
 jobs:
   check-and-update:
@@ -19,7 +22,7 @@ jobs:
       - name: Setup Python environment
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: '3.12'
           
       - name: Install dependencies
         run: |
@@ -37,22 +40,37 @@ jobs:
           echo "Downloading from ${{ steps.check-updates.outputs.download_url }}"
           wget -O "./downloads/idm_${{ steps.check-updates.outputs.version }}.exe" "${{ steps.check-updates.outputs.download_url }}"
           
-      - name: Create Release
+      - name: Update existing IDM release
         if: steps.check-updates.outputs.new_version == 'true'
         uses: softprops/action-gh-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: "v${{ steps.check-updates.outputs.version }}"
-          name: "Internet Download Manager v${{ steps.check-updates.outputs.version }}"
+          tag_name: "IDM"  # Use fixed tag name
+          name: "Internet Download Manager (Latest)"
           files: |
             ./downloads/idm_${{ steps.check-updates.outputs.version }}.exe
             current_version.txt
           body: |
             Internet Download Manager has been updated to version ${{ steps.check-updates.outputs.version }}
             
+            Last updated: $(date -u +'%Y-%m-%d %H:%M:%S UTC')
             Automatically updated by GitHub Actions
       
+      - name: Update version tag
+        if: steps.check-updates.outputs.new_version == 'true'
+        run: |
+          git config --local user.email "sky@sky1218.com"
+          git config --local user.name "sky1218"
+          
+          # Delete the existing tag locally and remotely
+          git tag -d IDM || true
+          git push origin :refs/tags/IDM || true
+          
+          # Create a new tag at the current commit
+          git tag IDM
+          git push origin IDM
+          
       - name: Commit version update
         if: steps.check-updates.outputs.new_version == 'true'
         run: |
