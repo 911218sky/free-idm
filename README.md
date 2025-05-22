@@ -16,7 +16,8 @@ Before installing the new version of IDM, please follow these preparation steps:
 ## 💿 Installation Process
 
 ### Step 1: Install New IDM Version
-- Download the IDM installer from [the official GitHub repository](https://github.com/911218sky/free-idm/releases/tag/IDM) and select the version that suits your system
+- Download the IDM installer from [this GitHub repository](https://github.com/911218sky/free-idm/releases/tag/IDM) and choose the version compatible with your system
+Answer from Perplexity: pplx.ai/share
 - Run the IDM installer
 - If prompted for a serial number or registration, simply click "Cancel"
 - Complete the installation process
