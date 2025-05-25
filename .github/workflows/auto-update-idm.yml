@@ -1,4 +1,4 @@
-name: Auto Update IDM Release Assets
+name: Auto Update IDM
 
 on:
   schedule:
@@ -8,11 +8,12 @@ on:
     branches:
       - main
 
+permissions:
+  contents: write
+
 jobs:
   check-and-upload:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
 
     steps:
       - uses: actions/checkout@v3
@@ -58,7 +59,6 @@ jobs:
               repo: context.repo.repo,
               tag
             });
-            // IMPORTANT: keep the `{?name,label}` placeholder
             core.setOutput('upload_url', release.upload_url);
             core.setOutput('release_id', release.id);
             console.log(`Found release #${release.id}, upload_url=${release.upload_url}`);
@@ -80,7 +80,3 @@ jobs:
           asset_path: build/current_version.txt
           asset_name: current_version.txt
           asset_content_type: text/plain
-
-      - name: Done
-        if: steps.check.outputs.new_version == 'true'
-        run: echo "✅ Uploaded IDM v${{ steps.check.outputs.version }} to existing Release."
