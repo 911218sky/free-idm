@@ -14,6 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      packages: write
 
     steps:
       - name: Checkout Repository
@@ -79,7 +80,7 @@ jobs:
 
             Last updated: ${(new Date()).toISOString()}
             (Automatically updated by GitHub Actions)`;
-            
+
             await github.rest.repos.updateRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
