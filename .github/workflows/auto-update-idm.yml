@@ -1,30 +1,30 @@
-name: Auto Update IDM
+name: Auto Update IDM Release Assets
 
 on:
   schedule:
     # Run daily at 04:00 UTC
     - cron: '0 4 * * *'
-  workflow_dispatch:  # Allow manual trigger
+  workflow_dispatch:      # Allow manual trigger
   push:
     branches:
-      - main
+      - main            # Or your default branch
 
 jobs:
-  check-and-update:
+  update-assets:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write    # Required to read/write Releases
 
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up Python environment
+      - name: Set up Python 3.12
         uses: actions/setup-python@v4
         with:
           python-version: '3.12'
 
-      - name: Install dependencies
+      - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           pip install requests beautifulsoup4
@@ -32,78 +32,52 @@ jobs:
       - name: Check for IDM updates
         id: check-updates
         run: python .github/scripts/idm_updater.py
-        # This script should output:
+        # This script should set GitHub Outputs:
         #   new_version (true/false)
-        #   version (version number)
-        #   download_url (download link)
+        #   version     (e.g. "6.41")
+        #   download_url
 
-      - name: Download new IDM version
+      # Download the new installer if there is a new version
+      - name: Download new IDM installer
         if: steps.check-updates.outputs.new_version == 'true'
         run: |
-          mkdir -p downloads
-          wget -O downloads/idm_${{ steps.check-updates.outputs.version }}.exe \
+          mkdir -p build
+          wget -O build/idm_${{ steps.check-updates.outputs.version }}.exe \
                "${{ steps.check-updates.outputs.download_url }}"
+          echo "version=${{ steps.check-updates.outputs.version }}" > build/version.txt
 
-      - name: Get current date
-        id: date
-        run: echo "current_date=$(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_OUTPUT
-
-      - name: Commit version update
+      - name: Get release metadata
         if: steps.check-updates.outputs.new_version == 'true'
-        run: |
-          git config user.email "sky@sky1218.com"
-          git config user.name "sky1218"
-          git add -f current_version.txt
-          git commit -m "Update IDM to version ${{ steps.check-updates.outputs.version }}"
-          git push
-
-      - name: Update version tag
-        if: steps.check-updates.outputs.new_version == 'true'
-        run: |
-          git config user.email "sky@sky1218.com"
-          git config user.name "sky1218"
-          git tag -d IDM || true
-          git push origin :refs/tags/IDM || true
-          git tag IDM
-          git push origin IDM
-
-      - name: Update existing IDM release
-        if: steps.check-updates.outputs.new_version == 'true'
-        uses: softprops/action-gh-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: "IDM"
-          name: "Internet Download Manager (Latest)"
-          files: |
-            downloads/idm_${{ steps.check-updates.outputs.version }}.exe
-            current_version.txt
-          body: |
-            Internet Download Manager has been updated to version ${{ steps.check-updates.outputs.version }}
-
-            Last updated: ${{ steps.date.outputs.current_date }}
-            Automatically updated by GitHub Actions
-          update_existing: true
-          draft: false
-
-      - name: Publish (un-draft) the IDM release
-        if: steps.check-updates.outputs.new_version == 'true'
+        id: get_release
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
             const tag = 'IDM';
-            // Retrieve the release by tag
             const { data: release } = await github.rest.repos.getReleaseByTag({
-              owner, repo, tag
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              tag
             });
-            // Force publish the release
-            await github.rest.repos.updateRelease({
-              owner,
-              repo,
-              release_id: release.id,
-              draft: false
-            });
-            console.log(`Release '${tag}' (id=${release.id}) has been published`);
+            const uploadUrl = release.upload_url.replace(/\{\?name,label\}$/, '');
+            core.setOutput('upload_url', uploadUrl);
+            core.setOutput('release_id', release.id);
+            console.log(`Found Release ID ${release.id}, upload_url=${uploadUrl}`);
+
+      - name: Upload IDM installer to Release
+        if: steps.check-updates.outputs.new_version == 'true'
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.get_release.outputs.upload_url }}
+          asset_path: build/idm_${{ steps.check-updates.outputs.version }}.exe
+          asset_name: idm_${{ steps.check-updates.outputs.version }}.exe
+          asset_content_type: application/octet-stream
+
+      - name: Upload version.txt to Release
+        if: steps.check-updates.outputs.new_version == 'true'
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.get_release.outputs.upload_url }}
+          asset_path: build/version.txt
+          asset_name: version.txt
+          asset_content_type: text/plain
