@@ -2,53 +2,52 @@ name: Auto Update IDM Release Assets
 
 on:
   schedule:
-    # Run daily at 04:00 UTC
-    - cron: '0 4 * * *'
-  workflow_dispatch:      # Allow manual trigger
+    - cron: '0 4 * * *'   # daily at 04:00 UTC
+  workflow_dispatch:
   push:
     branches:
-      - main            # Or your default branch
+      - main
 
 jobs:
-  update-assets:
+  check-and-upload:
     runs-on: ubuntu-latest
     permissions:
-      contents: write    # Required to read/write Releases
+      contents: write
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
+        name: Checkout code
 
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v4
+      - uses: actions/setup-python@v4
+        name: Set up Python 3.12
         with:
           python-version: '3.12'
 
       - name: Install Python dependencies
+        if: always()
         run: |
-          python -m pip install --upgrade pip
+          pip install --upgrade pip
           pip install requests beautifulsoup4
 
       - name: Check for IDM updates
-        id: check-updates
+        id: check
         run: python .github/scripts/idm_updater.py
-        # This script should set GitHub Outputs:
-        #   new_version (true/false)
-        #   version     (e.g. "6.41")
+        # Expects to emit via `echo "::set-output name=...::..."`:
+        #   new_version  (true/false)
+        #   version      (e.g. 6.41)
         #   download_url
 
-      # Download the new installer if there is a new version
       - name: Download new IDM installer
-        if: steps.check-updates.outputs.new_version == 'true'
+        if: steps.check.outputs.new_version == 'true'
         run: |
           mkdir -p build
-          wget -O build/idm_${{ steps.check-updates.outputs.version }}.exe \
-               "${{ steps.check-updates.outputs.download_url }}"
-          echo "version=${{ steps.check-updates.outputs.version }}" > build/version.txt
+          wget -O build/idm_${{ steps.check.outputs.version }}.exe \
+               "${{ steps.check.outputs.download_url }}"
+          echo "version=${{ steps.check.outputs.version }}" > build/current_version.txt
 
-      - name: Get release metadata
-        if: steps.check-updates.outputs.new_version == 'true'
-        id: get_release
+      - name: Get existing Release upload_url
+        if: steps.check.outputs.new_version == 'true'
+        id: get_rel
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -56,28 +55,32 @@ jobs:
             const tag = 'IDM';
             const { data: release } = await github.rest.repos.getReleaseByTag({
               owner: context.repo.owner,
-              repo:  context.repo.repo,
+              repo: context.repo.repo,
               tag
             });
-            const uploadUrl = release.upload_url.replace(/\{\?name,label\}$/, '');
-            core.setOutput('upload_url', uploadUrl);
+            // IMPORTANT: keep the `{?name,label}` placeholder
+            core.setOutput('upload_url', release.upload_url);
             core.setOutput('release_id', release.id);
-            console.log(`Found Release ID ${release.id}, upload_url=${uploadUrl}`);
+            console.log(`Found release #${release.id}, upload_url=${release.upload_url}`);
 
-      - name: Upload IDM installer to Release
-        if: steps.check-updates.outputs.new_version == 'true'
+      - name: Upload IDM installer
+        if: steps.check.outputs.new_version == 'true'
         uses: actions/upload-release-asset@v1
         with:
-          upload_url: ${{ steps.get_release.outputs.upload_url }}
-          asset_path: build/idm_${{ steps.check-updates.outputs.version }}.exe
-          asset_name: idm_${{ steps.check-updates.outputs.version }}.exe
+          upload_url: ${{ steps.get_rel.outputs.upload_url }}
+          asset_path: build/idm_${{ steps.check.outputs.version }}.exe
+          asset_name: idm_${{ steps.check.outputs.version }}.exe
           asset_content_type: application/octet-stream
 
-      - name: Upload version.txt to Release
-        if: steps.check-updates.outputs.new_version == 'true'
+      - name: Upload version file
+        if: steps.check.outputs.new_version == 'true'
         uses: actions/upload-release-asset@v1
         with:
-          upload_url: ${{ steps.get_release.outputs.upload_url }}
-          asset_path: build/version.txt
-          asset_name: version.txt
+          upload_url: ${{ steps.get_rel.outputs.upload_url }}
+          asset_path: build/current_version.txt
+          asset_name: current_version.txt
           asset_content_type: text/plain
+
+      - name: Done
+        if: steps.check.outputs.new_version == 'true'
+        run: echo "✅ Uploaded IDM v${{ steps.check.outputs.version }} to existing Release."
