@@ -64,8 +64,9 @@ jobs:
       - name: Upload New Asset to Existing Release
         if: steps.check.outputs.new_version == 'true'
         uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.SuperSecret }}
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
           upload_url: ${{ steps.get_rel.outputs.upload_url }}
           asset_path: downloads/idm_${{ steps.check.outputs.version }}.exe
           asset_name: idm_${{ steps.check.outputs.version }}.exe
