@@ -2,51 +2,49 @@ name: Auto Update IDM
 
 on:
   schedule:
-    - cron: '0 4 * * *'   # daily at 04:00 UTC
-  workflow_dispatch:
+    # Run daily at 04:00 UTC
+    - cron: '0 4 * * *'
+  workflow_dispatch:    # Allow manual trigger
   push:
     branches:
       - main
 
-permissions:
-  contents: write
-
 jobs:
-  check-and-upload:
+  check-and-update:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
-      - uses: actions/checkout@v3
-        name: Checkout code
+      - name: Checkout Repository
+        uses: actions/checkout@v3
 
-      - uses: actions/setup-python@v4
-        name: Set up Python 3.12
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v4
         with:
           python-version: '3.12'
 
-      - name: Install Python dependencies
-        if: always()
+      - name: Install Dependencies
         run: |
-          pip install --upgrade pip
+          python -m pip install --upgrade pip
           pip install requests beautifulsoup4
 
-      - name: Check for IDM updates
+      - name: Check for IDM Updates
         id: check
         run: python .github/scripts/idm_updater.py
-        # Expects to emit via `echo "::set-output name=...::..."`:
-        #   new_version  (true/false)
-        #   version      (e.g. 6.41)
+        # Expects outputs:
+        #   new_version (true/false)
+        #   version     (version number)
         #   download_url
 
-      - name: Download new IDM installer
+      - name: Download New IDM Version
         if: steps.check.outputs.new_version == 'true'
         run: |
-          mkdir -p build
-          wget -O build/idm_${{ steps.check.outputs.version }}.exe \
+          mkdir -p downloads
+          wget -O downloads/idm_${{ steps.check.outputs.version }}.exe \
                "${{ steps.check.outputs.download_url }}"
-          echo "version=${{ steps.check.outputs.version }}" > build/current_version.txt
 
-      - name: Get existing Release upload_url
+      - name: Get Existing Release Info
         if: steps.check.outputs.new_version == 'true'
         id: get_rel
         uses: actions/github-script@v6
@@ -57,26 +55,34 @@ jobs:
             const { data: release } = await github.rest.repos.getReleaseByTag({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              tag
+              tag,
             });
             core.setOutput('upload_url', release.upload_url);
             core.setOutput('release_id', release.id);
-            console.log(`Found release #${release.id}, upload_url=${release.upload_url}`);
 
-      - name: Upload IDM installer
+      - name: Upload New Asset to Existing Release
         if: steps.check.outputs.new_version == 'true'
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ steps.get_rel.outputs.upload_url }}
-          asset_path: build/idm_${{ steps.check.outputs.version }}.exe
+          asset_path: downloads/idm_${{ steps.check.outputs.version }}.exe
           asset_name: idm_${{ steps.check.outputs.version }}.exe
           asset_content_type: application/octet-stream
 
-      - name: Upload version file
+      - name: Update Release Notes (Optional)
         if: steps.check.outputs.new_version == 'true'
-        uses: actions/upload-release-asset@v1
+        uses: actions/github-script@v6
         with:
-          upload_url: ${{ steps.get_rel.outputs.upload_url }}
-          asset_path: build/current_version.txt
-          asset_name: current_version.txt
-          asset_content_type: text/plain
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const body = `Internet Download Manager has been updated to version ${{ steps.check.outputs.version }}
+
+            Last updated: ${(new Date()).toISOString()}
+            (Automatically updated by GitHub Actions)`;
+            
+            await github.rest.repos.updateRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: parseInt('${{ steps.get_rel.outputs.release_id }}'),
+              body,
+            });
