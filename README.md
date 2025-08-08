@@ -1,6 +1,5 @@
 # 🚀 IDM (Internet Download Manager) FREE
 
-
 ## 📋 Prerequisites
 
 Before installing the new version of IDM, please follow these preparation steps:
@@ -13,11 +12,15 @@ Before installing the new version of IDM, please follow these preparation steps:
    - Remove all IDM plugins from your browsers
    - Run the [`Clean_IDM_Residuals.bat`](https://github.com/911218sky/free-idm/releases/tag/v0.0.1) batch file
 
+3. **Optional: Disable Auto-Update** 🛡️
+   - Download [`disable-idm-update.bat`](https://github.com/911218sky/free-idm/releases/tag/v0.0.1)
+   - Double-click to run (will auto-request admin rights)
+   - Prevents IDM from auto-updating and breaking the crack
+
 ## 💿 Installation Process
 
 ### Step 1: Install New IDM Version
 - Download the IDM installer from [this GitHub repository](https://github.com/911218sky/free-idm/releases/tag/IDM) and choose the version compatible with your system
-Answer from Perplexity: pplx.ai/share
 - Run the IDM installer
 - If prompted for a serial number or registration, simply click "Cancel"
 - Complete the installation process
